@@ -7,13 +7,16 @@ from docx_fill import *
 from claude_connection import *
 from jsonClean import *
 
-# load_dotenv()
-# CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
 
 def load_user_profile(file_path):
-    """Load user profile from JSON file."""
+    """Load user profile from JSON file and validate its format."""
     with open(file_path, 'r') as file:
-        return json.load(file)
+        try:
+            data = json.load(file)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format in {file_path}: {e}")
+    
+    return data
 
 
 if __name__ == "__main__":
@@ -25,6 +28,7 @@ if __name__ == "__main__":
 
     try:
         user_profile_json = load_user_profile("data/profile.json")
+        
         job_description_json = {"job_description": job_description}
         
         enhanced_info = send_message_claude(user_profile_json, job_description_json)
