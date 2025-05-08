@@ -1,8 +1,36 @@
 from docx import Document
 import docx
 from docx.oxml import parse_xml
-import json
 
+"""
+Fills a Word document template with provided data and saves the output.
+This function takes a Word document template, replaces placeholders in the 
+template with corresponding values from the provided data, and saves the 
+modified document to the specified output path. It supports replacing 
+placeholders with plain text, bullet points, and structured content such as 
+headers with descriptions.
+Args:
+    template_path (str): The file path to the Word document template.
+    output_path (str): The file path where the filled document will be saved.
+    data (dict): A dictionary containing the data to fill in the template. 
+                 Keys represent placeholders in the template, and values 
+                 represent the content to replace them with. The values can 
+                 be:
+                 - A string for simple text replacement.
+                 - A list of strings for bullet points (e.g., qualifications).
+                 - A list of dictionaries for structured content, where each 
+                   dictionary contains:
+                   - 'header' (str): The header text.
+                   - 'description' (list): A list of strings for bullet points 
+                     under the header.
+Raises:
+    KeyError: If a placeholder in the template is not found in the data.
+    ValueError: If the data format is invalid.
+Example:
+    with open("data.json", "r") as file:
+        data = json.load(file)
+    fill_resume("template.docx", "output.docx", data)
+"""
 def fill_resume(template_path, output_path, data):
     doc = Document(template_path)
     
@@ -11,7 +39,6 @@ def fill_resume(template_path, output_path, data):
             if key in paragraph.text:
                 if key == paragraph.text:
                     if isinstance(value, list):
-                        
                         if (key == '[qualifications]'):
                             # Logic to add bullet points for qualifiactions
                             p_to_replace = paragraph._element
