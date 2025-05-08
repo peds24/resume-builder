@@ -60,14 +60,14 @@ def fill_resume(template_path, output_path, data):
 
     doc.save(output_path)
 
-if __name__ == '__main__':
-    with open('./data/profile.json', 'r') as file:
-        data = json.load(file)
+# if __name__ == '__main__':
+#     with open('./data/profile.json', 'r') as file:
+#         data = json.load(file)
 
-    # with open('./data/sample.json', 'r') as file:
-    #     data = json.load(file)
+#     # with open('./data/sample.json', 'r') as file:
+#     #     data = json.load(file)
 
-        output_path = './output_docs/pedro-serdio-CV.docx'
-        template_path = './data/resumeTemplate.docx'
+#         output_path = './output_docs/pedro-serdio-CV.docx'
+#         template_path = './data/resumeTemplate.docx'
 
-        fill_resume(template_path, output_path, data)
+#         fill_resume(template_path, output_path, data)

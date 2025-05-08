@@ -1,6 +1,11 @@
+import os
 import anthropic
+from dotenv import load_dotenv
 
 def claudeTest(question):
+    
+    load_dotenv()
+    
     client = anthropic.Anthropic()
     message = client.messages.create(
         model="claude-3-7-sonnet-20250219",
