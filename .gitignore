@@ -15,3 +15,5 @@ data/
 output_docs/
 
 .DS_Store
+
+run-logs/
