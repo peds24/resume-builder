@@ -12,3 +12,6 @@ __pycache__/
 # Generated documents
 *.docx
 data/
+output_docs/
+
+.DS_Store
