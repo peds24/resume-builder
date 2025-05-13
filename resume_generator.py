@@ -75,7 +75,7 @@ if __name__ == "__main__":
         
         print("Resume Generated Successfully, check output_docs directory")
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logging.error(f"An error occurred: {e}", exc_info=True)
         print(f"An error occurred: {e}")
         
         

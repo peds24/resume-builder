@@ -1,100 +1,125 @@
 from docx import Document
-import docx
-from docx.oxml import parse_xml
+import re
+from lxml import etree
+from docx.oxml.ns import qn
+import docx.shared
 
-"""
-Fills a Word document template with provided data and saves the output.
-This function takes a Word document template, replaces placeholders in the 
-template with corresponding values from the provided data, and saves the 
-modified document to the specified output path. It supports replacing 
-placeholders with plain text, bullet points, and structured content such as 
-headers with descriptions.
-Args:
-    template_path (str): The file path to the Word document template.
-    output_path (str): The file path where the filled document will be saved.
-    data (dict): A dictionary containing the data to fill in the template. 
-                 Keys represent placeholders in the template, and values 
-                 represent the content to replace them with. The values can 
-                 be:
-                 - A string for simple text replacement.
-                 - A list of strings for bullet points (e.g., qualifications).
-                 - A list of dictionaries for structured content, where each 
-                   dictionary contains:
-                   - 'header' (str): The header text.
-                   - 'description' (list): A list of strings for bullet points 
-                     under the header.
-Raises:
-    KeyError: If a placeholder in the template is not found in the data.
-    ValueError: If the data format is invalid.
-Example:
-    with open("data.json", "r") as file:
-        data = json.load(file)
-    fill_resume("template.docx", "output.docx", data)
-"""
+def parse_xml(xml_string):
+    """
+    Custom implementation of parse_xml since it's not available in the current python-docx version
+    """
+    return etree.fromstring(xml_string)
+
+def apply_bullet_formatting(doc, paragraph):
+    """Apply correct formatting for bullet points (size 10) while keeping text at size 9"""
+    paragraph.style = 'List Paragraph'
+    
+    # Create proper bullet point with size 10
+    bullet_xml = parse_xml('<w:numPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                     '<w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>')
+    
+    pPr = paragraph._p.get_or_add_pPr()
+    
+    for child in pPr.findall('.//{%s}numPr' % qn('w:')[1:-1]):
+        pPr.remove(child)
+    
+    pPr.append(bullet_xml)
+    
+    # Add specific indentation for bullets
+    for child in pPr.findall('.//{%s}ind' % qn('w:')[1:-1]):
+        pPr.remove(child)
+    
+    pPr.insert(0, parse_xml('<w:ind w:left="365" w:hanging="360" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'))
+    
+    # Add number formatting for the bullets (size 10)
+    if not any(child.tag == qn('w:rPr') for child in pPr):
+        rPr = parse_xml('<w:rPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                        '<w:sz w:val="20"/></w:rPr>')  # 20 half-points = 10 points
+        pPr.append(rPr)
+    
+    return paragraph
+
 def fill_resume(template_path, output_path, data):
     doc = Document(template_path)
     
+    # Helper function to strip whitespace and normalize text
+    def normalize_text(text):
+        return re.sub(r'\s+', ' ', text).strip()
+    
     for paragraph in doc.paragraphs:
+        # Normalize paragraph text to handle whitespace issues
+        normalized_para_text = normalize_text(paragraph.text)
+        
+        # Check for exact full paragraph replacement first
         for key, value in data.items():
-            if key in paragraph.text:
-                if key == paragraph.text:
-                    if isinstance(value, list):
-                        if (key == '[qualifications]'):
-                            # Logic to add bullet points for qualifiactions
-                            p_to_replace = paragraph._element
-                            parent = p_to_replace.getparent()
-                                
-                            for item in value:
-                                new_p = doc.add_paragraph(item, style='List Paragraph')
-                                new_p._p.get_or_add_pPr().append(
-                                    parse_xml('<w:numPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>')
-                                )
-                                parent.insert(parent.index(p_to_replace), new_p._element)
-                            parent.remove(p_to_replace)
-                            continue
-                        else:
-                            # logic for jobs, projects which feature heading and description
-                            p_to_replace = paragraph._element
-                            parent = p_to_replace.getparent()
+            normalized_key = normalize_text(key)
             
-                            for item in value:
-                                header = doc.add_paragraph()
-                                header_run = header.add_run(item['header'])
-                                header_run.bold = True
-                                parent.insert(parent.index(p_to_replace), header._element)
-                                
-                                for point in item['description']:
-                                    bullet_p = new_p = doc.add_paragraph(point, style='List Paragraph')
-                                    new_p._p.get_or_add_pPr().append(
-                                        parse_xml('<w:numPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>')
-                                    )
-                                    parent.insert(parent.index(p_to_replace), bullet_p._element)
-                            parent.remove(p_to_replace)
-                            continue
-                    else:
-                        style = doc.styles['Normal']
-                        font = style.font
-                        font.name = 'Times New Roman'
-                        font.size = docx.shared.Pt(10)
-                        paragraph.text = paragraph.text.replace(key, value)
-
-                for run in paragraph.runs:
-                    style = doc.styles['Normal']
-                    font = style.font
-                    font.name = 'Times New Roman'
-                    font.size = docx.shared.Pt(10)
+            # Case 1: Exact paragraph match for list items (qualifications)
+            if normalized_para_text == normalized_key and key == '[qualifications]' and isinstance(value, list):
+                p_to_replace = paragraph._element
+                parent = p_to_replace.getparent()
+                
+                for item in value:
+                    # Create an empty paragraph - important to avoid duplicate content
+                    new_p = doc.add_paragraph()  
+                    new_p.style = 'List Paragraph'
+                    
+                    # Add the text with size 9 via a run
+                    run = new_p.add_run(item)
+                    run.font.name = 'Times New Roman'
+                    run.font.size = docx.shared.Pt(9)
+                    
+                    apply_bullet_formatting(doc, new_p)
+                    
+                    parent.insert(parent.index(p_to_replace), new_p._element)
+                
+                parent.remove(p_to_replace)
+                break
+            
+            # Case 2: Jobs/projects with header and description
+            elif normalized_para_text == normalized_key and isinstance(value, list) and all('header' in item and 'description' in item for item in value):
+                p_to_replace = paragraph._element
+                parent = p_to_replace.getparent()
+                
+                for item in value:
+                    header = doc.add_paragraph()
+                    header_run = header.add_run(item['header'])
+                    # Apply Times New Roman 9pt to headers
+                    header_run.font.name = 'Times New Roman'
+                    header_run.font.size = docx.shared.Pt(9)
+                    header_run.bold = True
+                    parent.insert(parent.index(p_to_replace), header._element)
+                    
+                    for point in item['description']:
+                        # Create an empty paragraph first (no text content)
+                        bullet_p = doc.add_paragraph(style='List Paragraph')
+                        
+                        # Add the text with size 9 in a run
+                        point_run = bullet_p.add_run(point)
+                        point_run.font.name = 'Times New Roman'
+                        point_run.font.size = docx.shared.Pt(9)
+                        
+                        # Apply bullet point formatting with size 10
+                        apply_bullet_formatting(doc, bullet_p)
+                        
+                        parent.insert(parent.index(p_to_replace), bullet_p._element)
+                
+                parent.remove(p_to_replace)
+                break
+        
+        # Case 3: Simple text replacement within runs
+        for key, value in data.items():
+            
+            if isinstance(value, list):
+                continue
+            
+            # Replace text in runs (handles partial paragraph matches)
+            for run in paragraph.runs:
+                if key in run.text:
                     run.text = run.text.replace(key, value)
+                    
+                    # Apply formatting if needed
+                    run.font.name = 'Times New Roman'
+                    run.font.size = docx.shared.Pt(9)
 
     doc.save(output_path)
-
-# if __name__ == '__main__':
-#     with open('./data/profile.json', 'r') as file:
-#         data = json.load(file)
-
-#     # with open('./data/sample.json', 'r') as file:
-#     #     data = json.load(file)
-
-#         output_path = './output_docs/pedro-serdio-CV.docx'
-#         template_path = './data/resumeTemplate.docx'
-
-#         fill_resume(template_path, output_path, data)
