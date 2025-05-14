@@ -64,8 +64,8 @@ After your analysis, provide the enhanced resume in the following JSON format:
 
 {{
  "[qualifications]": ["bullet 1", "bullet 2", "bullet 3", "bullet 4"],
- "[tech_skills]": "list of technical skills, comma separated, grouped by categories",
- "[prof_skills]": "list of professional, personal skills, comma separated",
+ "[techskills]": "list of technical skills, comma separated, grouped by categories",
+ "[profskills]": "list of professional, personal skills, comma separated",
  "[jobs]": [
  {{
    "header": "job title from input",
